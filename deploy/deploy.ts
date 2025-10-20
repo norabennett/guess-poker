@@ -1,17 +1,25 @@
+import * as dotenv from "dotenv";
 import { DeployFunction } from "hardhat-deploy/types";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
+dotenv.config();
+
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
+  if (!process.env.INFURA_API_KEY) {
+    console.warn("INFURA_API_KEY is not configured");
+  }
+
   const { deployer } = await hre.getNamedAccounts();
   const { deploy } = hre.deployments;
 
-  const deployedFHECounter = await deploy("FHECounter", {
+  const deployment = await deploy("EncryptedPokerGame", {
     from: deployer,
     log: true,
   });
 
-  console.log(`FHECounter contract: `, deployedFHECounter.address);
+  console.log(`EncryptedPokerGame contract: ${deployment.address}`);
 };
+
 export default func;
-func.id = "deploy_fheCounter"; // id required to prevent reexecution
-func.tags = ["FHECounter"];
+func.id = "deploy_encryptedPokerGame"; // id required to prevent reexecution
+func.tags = ["EncryptedPokerGame"];
