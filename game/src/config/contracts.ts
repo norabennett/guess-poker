@@ -1,6 +1,6 @@
 import type { Address } from 'viem';
 
-export const CONTRACT_ADDRESS: Address = '0x0000000000000000000000000000000000000000';
+export const CONTRACT_ADDRESS: Address = '0xAb1445A0f1bFB9De010a5E0c4bA8885adA827daf';
 export const CHAIN_ID = 11155111;
 
 export const CONTRACT_ABI = [
@@ -270,6 +270,24 @@ export const CONTRACT_ABI = [
     "name": "makeGuess",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "startGame",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "encryptedSuit",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "encryptedRank",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "payable",
     "type": "function"
   },
   {
