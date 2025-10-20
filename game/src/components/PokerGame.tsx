@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ethers } from 'ethers';
+import type { LogDescription } from 'ethers';
 import { useAccount, usePublicClient } from 'wagmi';
 
 import {
@@ -55,8 +56,53 @@ const formatEtherValue = (value?: bigint, fallback?: bigint) => {
   return ethers.formatEther(candidate);
 };
 
-const formatError = (error: unknown) => {
+const formatError = (error: unknown, iface?: ethers.Interface) => {
   if (!error) return 'Unknown error';
+
+  const lookupCustomError = () => {
+    if (!iface) return null;
+    const candidate = (error as { data?: unknown; error?: { data?: unknown }; info?: { error?: { data?: unknown } } }) ?? {};
+    const dataSources = [
+      candidate.data,
+      candidate.error?.data,
+      candidate.info?.error?.data,
+    ];
+
+    for (const source of dataSources) {
+      if (typeof source === 'string' && source.startsWith('0x')) {
+        try {
+          const parsed = iface.parseError(source);
+          if (!parsed) {
+            continue;
+          }
+          const messageMap: Record<string, string> = {
+            ActiveGameExists: 'You already have an active game. Finish it before starting another.',
+            InvalidFee: 'The transaction did not include the required game fee.',
+            InvalidGuess: 'Guesses must use suits 1-4 and ranks 1-13.',
+            NoActiveGame: 'No active game found for this wallet.',
+            InsufficientBankroll: 'The house balance is too low to cover the full reward. Fund the contract before starting.',
+            TransferFailed: 'A reward transfer failed. Please try again.',
+            AmountExceedsBalance: 'Requested withdrawal exceeds the available balance.',
+            NotOwner: 'Only the contract owner can perform this action.',
+            InvalidOwner: 'New owner address cannot be zero.',
+            InvalidRecipient: 'Recipient address cannot be zero.',
+          };
+
+          return messageMap[parsed.name] ?? parsed.name;
+        } catch {
+          // Ignore parsing failures and fall back to default handling
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const customMessage = lookupCustomError();
+  if (customMessage) {
+    return customMessage;
+  }
+
   if (typeof error === 'string') return error;
   if (error instanceof Error) return error.message;
   if (typeof error === 'object' && 'shortMessage' in (error as any)) {
@@ -180,9 +226,13 @@ export function PokerGame() {
       for (const log of receipt.logs) {
         try {
           const parsed = contractInterface.parseLog(log);
-          if (parsed?.name === 'GameStarted') {
-            suitHandle = parsed.args.encryptedSuit as string;
-            rankHandle = parsed.args.encryptedRank as string;
+          if (parsed === null) {
+            continue;
+          }
+          const description = parsed as LogDescription;
+          if (description.name === 'GameStarted') {
+            suitHandle = description.args.encryptedSuit as string;
+            rankHandle = description.args.encryptedRank as string;
             break;
           }
         } catch (error) {
@@ -204,7 +254,7 @@ export function PokerGame() {
       setFeedback({ type: 'success', message: 'A fresh encrypted card is ready. Time to guess!' });
     },
     onError: (error) => {
-      setFeedback({ type: 'error', message: formatError(error) });
+      setFeedback({ type: 'error', message: formatError(error, contractInterface) });
     },
   });
 
@@ -229,10 +279,14 @@ export function PokerGame() {
       for (const log of receipt.logs) {
         try {
           const parsed = contractInterface.parseLog(log);
-          if (parsed?.name === 'GuessEvaluated') {
-            const suitMatched = Boolean(parsed.args.suitMatched);
-            const rankMatched = Boolean(parsed.args.rankMatched);
-            const reward = BigInt(parsed.args.reward);
+          if (parsed === null) {
+            continue;
+          }
+          const description = parsed as LogDescription;
+          if (description.name === 'GuessEvaluated') {
+            const suitMatched = Boolean(description.args.suitMatched);
+            const rankMatched = Boolean(description.args.rankMatched);
+            const reward = BigInt(description.args.reward);
             return { suitMatched, rankMatched, reward } satisfies GuessResult;
           }
         } catch (error) {
@@ -266,11 +320,27 @@ export function PokerGame() {
       }
     },
     onError: (error) => {
-      setFeedback({ type: 'error', message: formatError(error) });
+      setFeedback({ type: 'error', message: formatError(error, contractInterface) });
     },
   });
 
-  const isStartDisabled = !isConnected || Boolean(activeGame) || startGameMutation.isPending || guessMutation.isPending;
+  const gameFee = gameTerms?.gameFee ?? DEFAULT_GAME_FEE_WEI;
+  const fullReward = gameTerms?.fullReward ?? DEFAULT_FULL_REWARD_WEI;
+  const currentHouseBalance = houseBalance ?? 0n;
+  const projectedBalance = currentHouseBalance + gameFee;
+  const canCoverFullReward = projectedBalance >= fullReward;
+  const hasTermsData = Boolean(gameTerms);
+  const hasBalanceData = typeof houseBalance === 'bigint';
+  const isBankrollInsufficient = hasBalanceData && hasTermsData && !canCoverFullReward;
+
+  const isStartDisabled =
+    !isConnected ||
+    Boolean(activeGame) ||
+    startGameMutation.isPending ||
+    guessMutation.isPending ||
+    !hasTermsData ||
+    !hasBalanceData ||
+    isBankrollInsufficient;
   const isGuessDisabled = !isConnected || !activeGame || guessMutation.isPending;
 
   return (
@@ -324,6 +394,12 @@ export function PokerGame() {
         </button>
         {!isConnected && <p className="helper-text">Connect a wallet on Sepolia to begin.</p>}
         {activeGame && <p className="helper-text">Resolve your current game before starting another.</p>}
+        {isBankrollInsufficient && (
+          <p className="helper-text error-text">
+            House balance plus the entry fee totals {formatEtherValue(projectedBalance)} ETH. Fund the contract so it can cover a
+            full reward of {formatEtherValue(gameTerms?.fullReward, DEFAULT_FULL_REWARD_WEI)} ETH before starting.
+          </p>
+        )}
       </section>
 
       <section className="poker-card">

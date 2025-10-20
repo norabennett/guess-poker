@@ -165,6 +165,11 @@
   color: #6b7280;
 }
 
+.helper-text.error-text {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 @media (max-width: 640px) {
   .poker-header {
     flex-direction: column;
