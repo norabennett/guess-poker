@@ -346,7 +346,7 @@ export function PokerGame() {
   return (
     <div className="poker-wrapper">
       <header className="poker-header">
-        <div>
+        <div className="header-content">
           <h1>Encrypted Poker Guess</h1>
           <p>Start a round, inspect encrypted handles, and predict the exact card.</p>
         </div>
