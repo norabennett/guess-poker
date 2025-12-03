@@ -2,11 +2,11 @@
 pragma solidity ^0.8.24;
 
 import {FHE, euint8} from "@fhevm/solidity/lib/FHE.sol";
-import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
+import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 
 /// @title EncryptedPokerGame
 /// @notice Poker-style guessing game with encrypted card values managed through Zama FHE.
-contract EncryptedPokerGame is SepoliaConfig {
+contract EncryptedPokerGame is ZamaEthereumConfig {
     uint256 public constant GAME_FEE = 1e15; // 0.001 ether
     uint256 public constant SUIT_REWARD = 1e14; // 0.0001 ether
     uint256 public constant RANK_REWARD = 1e15; // 0.001 ether

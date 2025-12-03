@@ -1,6 +1,6 @@
 import type { Address } from 'viem';
 
-export const CONTRACT_ADDRESS: Address = '0xAb1445A0f1bFB9De010a5E0c4bA8885adA827daf';
+export const CONTRACT_ADDRESS: Address = '0x4484148F5046f4BB529D23B240e13A48dDf5153B';
 export const CHAIN_ID = 11155111;
 
 export const CONTRACT_ABI = [
